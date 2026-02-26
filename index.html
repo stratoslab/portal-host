@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PrivaMargin Portal Host</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1117;
+        --panel: #111a23;
+        --muted: #91a2b3;
+        --text: #e9eef3;
+        --accent: #00d4aa;
+        --warn: #f59e0b;
+        --danger: #ef4444;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Outfit", "Segoe UI", system-ui, -apple-system, sans-serif;
+        background: radial-gradient(circle at 20% 0%, #162230 0%, var(--bg) 45%);
+        color: var(--text);
+      }
+
+      .wrap {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      .toolbar {
+        padding: 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(17, 26, 35, 0.92);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .input {
+        flex: 1;
+        min-width: 360px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: #0f1821;
+        color: var(--text);
+      }
+
+      .btn {
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: #182432;
+        color: var(--text);
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+
+      .btn.primary {
+        background: rgba(0, 212, 170, 0.18);
+        border-color: rgba(0, 212, 170, 0.45);
+        color: #86ffe2;
+      }
+
+      .btn.warn {
+        background: rgba(245, 158, 11, 0.16);
+        border-color: rgba(245, 158, 11, 0.45);
+        color: #ffd79a;
+      }
+
+      .status {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .frame-wrap {
+        padding: 14px;
+      }
+
+      iframe {
+        width: 100%;
+        height: calc(100vh - 100px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: #0a0e14;
+      }
+
+      .danger {
+        color: var(--danger);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="toolbar">
+        <div class="row">
+          <input id="appUrl" class="input" type="text" placeholder="Embedded app URL" />
+          <button id="loadBtn" class="btn primary">Load App</button>
+          <button id="testnetBtn" class="btn">Send Testnet</button>
+          <button id="mainnetBtn" class="btn">Send Mainnet</button>
+          <button id="reloadBtn" class="btn warn">Reload Iframe</button>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
+      <div class="frame-wrap">
+        <iframe id="appFrame" title="PrivaMargin Embedded App" allow="clipboard-read; clipboard-write"></iframe>
+      </div>
+    </div>
+
+    <script type="module">
+      const params = new URLSearchParams(window.location.search);
+      const appUrlInput = document.getElementById('appUrl');
+      const frame = document.getElementById('appFrame');
+      const status = document.getElementById('status');
+
+      const defaultUrl = params.get('app') || 'https://privamargin.pages.dev/';
+      appUrlInput.value = defaultUrl;
+
+      const setStatus = (msg, isError = false) => {
+        status.textContent = msg;
+        status.classList.toggle('danger', isError);
+      };
+
+      const loadFrame = () => {
+        const url = appUrlInput.value.trim();
+        if (!url) {
+          setStatus('Enter an app URL first.', true);
+          return;
+        }
+        frame.src = url;
+        const next = new URL(window.location.href);
+        next.searchParams.set('app', url);
+        window.history.replaceState({}, '', next.toString());
+        setStatus(`Loaded: ${url}`);
+      };
+
+      const sendNetwork = (network) => {
+        if (!frame.contentWindow) {
+          setStatus('Iframe not ready yet.', true);
+          return;
+        }
+        frame.contentWindow.postMessage(
+          { type: 'wallet_event', event: 'networkChanged', data: network },
+          '*'
+        );
+        setStatus(`Sent wallet_event.networkChanged = ${network}`);
+      };
+
+      document.getElementById('loadBtn').addEventListener('click', loadFrame);
+      document.getElementById('reloadBtn').addEventListener('click', () => {
+        if (!frame.src) {
+          loadFrame();
+          return;
+        }
+        frame.src = frame.src;
+        setStatus('Iframe reloaded');
+      });
+      document.getElementById('testnetBtn').addEventListener('click', () => sendNetwork('testnet'));
+      document.getElementById('mainnetBtn').addEventListener('click', () => sendNetwork('mainnet'));
+
+      frame.addEventListener('load', () => setStatus('Iframe loaded.'));
+      loadFrame();
+    </script>
+  </body>
+</html>
